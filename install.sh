@@ -11,12 +11,18 @@ warn() { echo -e "  ${YELLOW}!${NC} $1"; }
 fail() { echo -e "  ${RED}✗${NC} $1"; }
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-VENV_DIR="$SCRIPT_DIR/.venv"
 BIN_DIR="$HOME/.local/bin"
+
+# Install dir: first argument or default ~/grab
+INSTALL_DIR="${1:-$HOME/grab}"
+INSTALL_DIR="$(cd "$(dirname "$INSTALL_DIR")" 2>/dev/null && pwd)/$(basename "$INSTALL_DIR")" || INSTALL_DIR="$(eval echo "$INSTALL_DIR")"
+VENV_DIR="$INSTALL_DIR/.venv"
 
 echo ""
 echo "  grab installer"
 echo "  ──────────────"
+echo ""
+echo "  Install dir: $INSTALL_DIR"
 echo ""
 
 # ── Check Python ──────────────────────────────────────────────
@@ -45,6 +51,14 @@ else
     warn "uv not found, using python3 -m venv + pip"
 fi
 
+# ── Copy source to install dir ────────────────────────────────
+if [ "$INSTALL_DIR" != "$SCRIPT_DIR" ]; then
+    mkdir -p "$INSTALL_DIR"
+    rsync -a --exclude '.venv' --exclude '.git' --exclude 'output' --exclude '__pycache__' \
+        "$SCRIPT_DIR/" "$INSTALL_DIR/"
+    ok "Source copied to $INSTALL_DIR"
+fi
+
 # ── Create venv ───────────────────────────────────────────────
 echo ""
 echo "  Creating virtual environment..."
@@ -61,9 +75,9 @@ echo ""
 echo "  Installing grab into venv..."
 
 if $HAS_UV; then
-    uv pip install --python "$VENV_DIR/bin/python" "$SCRIPT_DIR" 2>&1 | tail -1
+    uv pip install --python "$VENV_DIR/bin/python" "$INSTALL_DIR" 2>&1 | tail -1
 else
-    "$VENV_DIR/bin/pip" install "$SCRIPT_DIR" 2>&1 | tail -1
+    "$VENV_DIR/bin/pip" install "$INSTALL_DIR" 2>&1 | tail -1
 fi
 ok "Package installed"
 

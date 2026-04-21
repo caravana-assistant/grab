@@ -10,7 +10,8 @@ YouTube & Instagram content grabber that outputs Obsidian-ready markdown with em
 ```bash
 git clone https://github.com/caravana-assistant/grab.git
 cd grab
-./install.sh
+./install.sh              # installs to ~/grab (default)
+./install.sh ~/my-tools   # or pick your own directory
 ```
 
 One script sets up everything:
