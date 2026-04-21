@@ -14,8 +14,8 @@ info() { echo -e "  ${CYAN}→${NC} $1"; }
 
 # ── Config ────────────────────────────────────────────────────
 NAS_IP="${NAS_IP:-100.66.29.49}"         # Tailscale IP (override with env var)
-NAS_SHARE="${NAS_SHARE:-workspace}"       # Synology shared folder name
-MOUNT_POINT="/workspace"
+NAS_SHARE="${NAS_SHARE:-Workspace}"       # Synology shared folder name
+MOUNT_POINT="/Users/Shared/workspace"
 AGENT_LABEL="com.grab.workspace-mount"
 AGENT_PLIST="$HOME/Library/LaunchAgents/${AGENT_LABEL}.plist"
 MOUNT_SCRIPT="$HOME/.local/bin/mount-workspace"
@@ -87,9 +87,8 @@ echo ""
 if [ -d "$MOUNT_POINT" ]; then
     ok "Mount point exists: $MOUNT_POINT"
 else
-    info "Creating $MOUNT_POINT (requires sudo)"
-    sudo mkdir -p "$MOUNT_POINT"
-    sudo chown "$(whoami)" "$MOUNT_POINT"
+    info "Creating $MOUNT_POINT"
+    mkdir -p "$MOUNT_POINT"
     ok "Mount point created: $MOUNT_POINT"
 fi
 
@@ -194,9 +193,10 @@ fi
 
 # ── Claude Code memory symlink ────────────────────────────────
 # Claude stores project memory at ~/.claude/projects/<encoded-path>/memory/
-# For /workspace, the encoded path is "-workspace"
+# Encode the mount point path: / becomes -
 echo ""
-CLAUDE_PROJECT_DIR="$HOME/.claude/projects/-workspace"
+ENCODED_PATH=$(echo "$MOUNT_POINT" | sed 's|/|-|g')
+CLAUDE_PROJECT_DIR="$HOME/.claude/projects/$ENCODED_PATH"
 CLAUDE_MEMORY_DIR="$CLAUDE_PROJECT_DIR/memory"
 
 mkdir -p "$CLAUDE_PROJECT_DIR"
