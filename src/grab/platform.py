@@ -60,6 +60,9 @@ def find_chrome_profile() -> str:
 
 
 def default_output_dir() -> str:
+    workspace = "/Users/Shared/workspace/grab-output"
+    if os.path.isdir("/Users/Shared/workspace"):
+        return workspace
     return os.path.expanduser("~/grab-output")
 
 
