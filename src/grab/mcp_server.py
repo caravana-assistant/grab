@@ -3,6 +3,7 @@ MCP server for grab — exposes YouTube & Instagram grabber as a tool
 for Claude Desktop and other MCP clients.
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -22,12 +23,12 @@ logger = logging.getLogger("grab.mcp")
 
 mcp = FastMCP(
     "grab",
-    description="Download YouTube transcripts and Instagram posts into Obsidian-ready markdown",
+    instructions="Download YouTube transcripts and Instagram posts into Obsidian-ready markdown",
 )
 
 
 @mcp.tool()
-def grab(
+async def grab(
     url: str,
     mode: str = "subtitle",
     language: str = "pt",
@@ -56,7 +57,7 @@ def grab(
     platform = detect_platform(url)
 
     if platform == "instagram":
-        result = _run_instagram(url, out)
+        result = await asyncio.to_thread(_run_instagram, url, out)
     else:
         result = _run_youtube(url, mode, out, language, cookie_file, quality, audio_format)
 
