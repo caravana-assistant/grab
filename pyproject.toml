@@ -12,10 +12,12 @@ dependencies = [
     "playwright>=1.40",
     "requests>=2.28",
     "pyyaml>=6.0",
+    "mcp[cli]>=1.0",
 ]
 
 [project.scripts]
 grab = "grab.cli:main"
+grab-mcp = "grab.mcp_server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/grab"]

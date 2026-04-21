@@ -115,18 +115,59 @@ for SKILL_DIR in "${SKILL_DIRS[@]}"; do
     fi
 done
 
-# ── Update SKILL.md command path ──────────────────────────────
-INSTALLED_SKILL=""
-for SKILL_DIR in "${SKILL_DIRS[@]}"; do
-    if [ -f "$SKILL_DIR/SKILL.md" ]; then
-        INSTALLED_SKILL="$SKILL_DIR/SKILL.md"
-        break
+# ── Claude Desktop MCP config ─────────────────────────────────
+GRAB_MCP_BIN="$VENV_DIR/bin/grab-mcp"
+
+if [[ "$(uname)" == "Darwin" ]]; then
+    DESKTOP_CONFIG="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+else
+    DESKTOP_CONFIG="$HOME/.config/Claude/claude_desktop_config.json"
+fi
+
+echo ""
+if [ -f "$DESKTOP_CONFIG" ]; then
+    # Check if grab is already configured
+    if grep -q '"grab"' "$DESKTOP_CONFIG" 2>/dev/null; then
+        ok "Claude Desktop: grab already configured"
+    else
+        # Inject grab into existing config
+        python3 -c "
+import json, sys
+path = '''$DESKTOP_CONFIG'''
+with open(path) as f:
+    cfg = json.load(f)
+cfg.setdefault('mcpServers', {})['grab'] = {
+    'command': '''$GRAB_MCP_BIN'''
+}
+with open(path, 'w') as f:
+    json.dump(cfg, f, indent=2)
+print('ok')
+" && ok "Claude Desktop: grab added to config" || warn "Could not update Claude Desktop config"
     fi
-done
+else
+    # Create config from scratch
+    mkdir -p "$(dirname "$DESKTOP_CONFIG")"
+    cat > "$DESKTOP_CONFIG" << MCPCONF
+{
+  "mcpServers": {
+    "grab": {
+      "command": "$GRAB_MCP_BIN"
+    }
+  }
+}
+MCPCONF
+    ok "Claude Desktop: config created at $DESKTOP_CONFIG"
+fi
+
+echo -e "       ${YELLOW}Restart Claude Desktop to activate${NC}"
 
 # ── Done ──────────────────────────────────────────────────────
 echo ""
-echo -e "  ${GREEN}Done!${NC} Run: grab <youtube-or-instagram-url>"
-echo "  Output goes to: ~/grab-output (or use -o to change)"
-echo "  Venv: $VENV_DIR"
+echo -e "  ${GREEN}Done!${NC}"
+echo ""
+echo "  CLI:            grab <youtube-or-instagram-url>"
+echo "  Claude Desktop: tool 'grab' available after restart"
+echo "  Claude Code:    /grab <url>"
+echo "  Output:         ~/grab-output (or use -o to change)"
+echo "  Venv:           $VENV_DIR"
 echo ""
