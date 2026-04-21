@@ -10,6 +10,10 @@ ok()   { echo -e "  ${GREEN}✓${NC} $1"; }
 warn() { echo -e "  ${YELLOW}!${NC} $1"; }
 fail() { echo -e "  ${RED}✗${NC} $1"; }
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+VENV_DIR="$SCRIPT_DIR/.venv"
+BIN_DIR="$HOME/.local/bin"
+
 echo ""
 echo "  grab installer"
 echo "  ──────────────"
@@ -33,33 +37,66 @@ else
 fi
 
 # ── Check uv ──────────────────────────────────────────────────
+HAS_UV=false
 if command -v uv &>/dev/null; then
-    INSTALLER="uv pip install"
+    HAS_UV=true
     ok "uv found"
 else
-    warn "uv not found, falling back to pip"
-    INSTALLER="pip install"
+    warn "uv not found, using python3 -m venv + pip"
 fi
 
-# ── Install package ───────────────────────────────────────────
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# ── Create venv ───────────────────────────────────────────────
 echo ""
-echo "  Installing grab..."
-$INSTALLER "$SCRIPT_DIR" 2>&1 | tail -1
-echo ""
+echo "  Creating virtual environment..."
 
-# ── Verify ────────────────────────────────────────────────────
-if command -v grab &>/dev/null; then
-    ok "grab command available"
+if $HAS_UV; then
+    uv venv "$VENV_DIR" 2>&1 | tail -1
 else
-    warn "grab not on PATH — you may need to restart your shell"
+    python3 -m venv "$VENV_DIR"
 fi
+ok "venv: $VENV_DIR"
+
+# ── Install package into venv ─────────────────────────────────
+echo ""
+echo "  Installing grab into venv..."
+
+if $HAS_UV; then
+    uv pip install --python "$VENV_DIR/bin/python" "$SCRIPT_DIR" 2>&1 | tail -1
+else
+    "$VENV_DIR/bin/pip" install "$SCRIPT_DIR" 2>&1 | tail -1
+fi
+ok "Package installed"
 
 # ── Install Playwright browsers ───────────────────────────────
 echo ""
 echo "  Installing Playwright Chromium (for Instagram)..."
-python3 -m playwright install chromium 2>&1 | tail -3
+"$VENV_DIR/bin/python" -m playwright install chromium 2>&1 | tail -3
 ok "Playwright ready"
+
+# ── Create wrapper script on PATH ─────────────────────────────
+echo ""
+mkdir -p "$BIN_DIR"
+
+cat > "$BIN_DIR/grab" << WRAPPER
+#!/usr/bin/env bash
+exec "$VENV_DIR/bin/grab" "\$@"
+WRAPPER
+chmod +x "$BIN_DIR/grab"
+ok "Wrapper: $BIN_DIR/grab"
+
+# Check if ~/.local/bin is on PATH
+if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
+    warn "$BIN_DIR is not on your PATH"
+    echo "       Add to your shell profile:"
+    echo "       export PATH=\"\$HOME/.local/bin:\$PATH\""
+fi
+
+# ── Verify ────────────────────────────────────────────────────
+if "$VENV_DIR/bin/grab" --help &>/dev/null; then
+    ok "grab command works"
+else
+    warn "grab installed but could not verify — check manually"
+fi
 
 # ── Install Claude Code skill (optional) ──────────────────────
 SKILL_SRC="$SCRIPT_DIR/skill/SKILL.md"
@@ -78,8 +115,18 @@ for SKILL_DIR in "${SKILL_DIRS[@]}"; do
     fi
 done
 
+# ── Update SKILL.md command path ──────────────────────────────
+INSTALLED_SKILL=""
+for SKILL_DIR in "${SKILL_DIRS[@]}"; do
+    if [ -f "$SKILL_DIR/SKILL.md" ]; then
+        INSTALLED_SKILL="$SKILL_DIR/SKILL.md"
+        break
+    fi
+done
+
 # ── Done ──────────────────────────────────────────────────────
 echo ""
 echo -e "  ${GREEN}Done!${NC} Run: grab <youtube-or-instagram-url>"
 echo "  Output goes to: ~/grab-output (or use -o to change)"
+echo "  Venv: $VENV_DIR"
 echo ""
