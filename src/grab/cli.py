@@ -29,6 +29,7 @@ from grab.markdown import (
     youtube_to_markdown, instagram_to_markdown,
     create_extraction_folder, update_index,
 )
+from grab.history import check_duplicate, record
 from grab.platform import default_output_dir, default_cookie_file
 
 logging.basicConfig(
@@ -163,11 +164,28 @@ def main():
                         help="Audio format (default: mp3)")
     parser.add_argument("--json", action="store_true",
                         help="Output result as JSON")
+    parser.add_argument("--force", "-f", action="store_true",
+                        help="Re-download even if URL was already grabbed")
 
     args = parser.parse_args()
 
     output_dir = args.output or default_output_dir()
     os.makedirs(output_dir, exist_ok=True)
+
+    # Check for duplicates
+    if not args.force:
+        existing = check_duplicate(output_dir, args.url)
+        if existing:
+            logger.info("Already grabbed: %s", existing.get("title"))
+            logger.info("Folder: %s", existing.get("folder"))
+            logger.info("Use --force to re-download")
+            if args.json:
+                print(json.dumps({"success": True, "duplicate": True, **existing}, ensure_ascii=False, indent=2))
+            else:
+                print(f"\nAlready grabbed: {existing.get('title')}")
+                print(f"Folder: {existing.get('folder')}")
+                print("Use --force to re-download")
+            sys.exit(0)
 
     cookie_file = args.cookies
     cookie_default = default_cookie_file()
@@ -185,6 +203,13 @@ def main():
         logger.info("Unknown platform, trying as YouTube...")
         result = run_youtube(args.url, args.mode, output_dir, args.language,
                              cookie_file, args.quality, args.audio_format)
+
+    # Record successful extraction
+    if result.get("success"):
+        record(output_dir, args.url,
+               result.get("title", ""),
+               result.get("folder", ""),
+               platform)
 
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))

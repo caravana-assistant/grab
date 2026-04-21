@@ -17,6 +17,7 @@ from grab.markdown import (
     youtube_to_markdown, instagram_to_markdown,
     create_extraction_folder, update_index,
 )
+from grab.history import check_duplicate, record
 from grab.platform import default_output_dir, default_cookie_file
 
 logger = logging.getLogger("grab.mcp")
@@ -49,6 +50,13 @@ async def grab(
     out = output_dir or default_output_dir()
     os.makedirs(out, exist_ok=True)
 
+    # Check for duplicates
+    existing = check_duplicate(out, url)
+    if existing:
+        existing["duplicate"] = True
+        existing["success"] = True
+        return json.dumps(existing, ensure_ascii=False, indent=2)
+
     cookie_file = None
     cookie_default = default_cookie_file()
     if os.path.exists(cookie_default):
@@ -60,6 +68,9 @@ async def grab(
         result = await asyncio.to_thread(_run_instagram, url, out)
     else:
         result = _run_youtube(url, mode, out, language, cookie_file, quality, audio_format)
+
+    if result.get("success"):
+        record(out, url, result.get("title", ""), result.get("folder", ""), platform)
 
     return json.dumps(result, ensure_ascii=False, indent=2)
 
